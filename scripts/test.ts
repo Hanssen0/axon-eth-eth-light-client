@@ -1,28 +1,32 @@
 import { ethers } from "hardhat";
 async function main() {
   const lightClientFactory = await ethers.getContractFactory("ETHLightClient");
-  const lightClient = lightClientFactory.attach("0x959922bE3CAee4b8Cd9a407cc3ac1C251C2007B1");
+  const lightClient = lightClientFactory.attach("0x1429859428C0aBc9C2C47C8Ee9FBaf82cFA0F20f");
   
   const ethProvider = new ethers.providers.JsonRpcProvider("https://rpc.ankr.com/eth");
 
-  let nowBlock = await ethProvider.getBlockNumber();
+  let nowBlock = (await lightClient.getLatestBlockNumber()).toNumber() + 1;
   const blocks = [];
   
   while (true) {
+    const now = (await ethers.provider.getBlock("latest")).timestamp;
     const latest = await ethProvider.getBlockNumber();
-    for (; nowBlock < latest; nowBlock += 1) {
-      blocks.push(await ethProvider.getBlock(nowBlock));
+
+    if (nowBlock < latest) {
+      const newBlock = await ethProvider.getBlock(nowBlock);
+      blocks.push(newBlock);
+      console.log(blocks.length, now, newBlock.timestamp);
+      nowBlock += 1;
     }
     
     while (blocks.length !== 0) {
-      const now = Math.floor(Date.now() / 1000);
       if (now - blocks[0].timestamp < 55) {
-        console.log(blocks.length, now, blocks[0]?.timestamp);
         break;
       }
       const block = blocks.shift()!;
+      console.log(block.timestamp, block.hash, block.parentHash, block.number)
 
-      const log1 = await lightClient.isValid(
+      const log1 = await lightClient.relayBlock(
         block.timestamp,
         block.hash,
       );

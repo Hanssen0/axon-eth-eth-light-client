@@ -2,7 +2,7 @@ import { ethers } from "hardhat";
 
 async function main() {
   const lightClientFactory = await ethers.getContractFactory("ETHLightClient");
-  const lightClient = await lightClientFactory.deploy();
+  const lightClient = await lightClientFactory.deploy(16596830);
 
   await lightClient.deployed();
 
