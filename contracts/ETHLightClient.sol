@@ -16,12 +16,13 @@ interface ETHVerifier {
 }
 
 contract ETHLightClient {
-  event NewBlock(ETHBlock block);
+  event NewBlock(bytes32 blockHash);
+  event BlockReorganazied(bytes32 blockHash);
 
   mapping (bytes32 => ETHBlock) public blocks;
   mapping (uint64 => bytes32) public blockHashesByNumber;
 
-  uint64 immutable public  startBlockNumber;
+  uint64 immutable public startBlockNumber;
   uint64 public latestBlockNumber;
   uint32 public latestBlockCount;
   mapping(uint32 => bytes32) public latestBlockHashes;
@@ -31,8 +32,24 @@ contract ETHLightClient {
     latestBlockNumber = startBlockNumber - 1;
   }
 
+  function getStartBlockNumber() public view returns (uint64) {
+    return startBlockNumber;
+  }
+
   function getLatestBlockNumber() public view returns (uint64) {
     return latestBlockNumber;
+  }
+
+  function getBlockHashByNumber(uint64 blockNumber) public view returns (bytes32) {
+    return blockHashesByNumber[blockNumber];
+  }
+
+  function getBlockByHash(bytes32 blockHash) public view returns (ETHBlock memory) {
+    return blocks[blockHash];
+  }
+
+  function isBlockOnChain(bytes32 blockHash) public view returns (bool) {
+    return blockHashesByNumber[blocks[blockHash].number] == blockHash;
   }
 
   function relayBlock(uint64 timestamp, bytes32 blockHash) public {
@@ -42,7 +59,7 @@ contract ETHLightClient {
     require(newBlock.number <= latestBlockNumber + 1, "Previous blocks are not relayed");
 
     blocks[blockHash] = newBlock;
-    emit NewBlock(newBlock);
+    emit NewBlock(blockHash);
 
     if (latestBlockNumber > newBlock.number) {
       return;
@@ -60,7 +77,16 @@ contract ETHLightClient {
 
     uint64 maintainingBlockNumber = latestBlockNumber;
     bytes32 maintainingBlockHash = blockHash;
-    while (blockHashesByNumber[maintainingBlockNumber] != maintainingBlockHash) {
+    while (true) {
+      bytes32 oldHash = blockHashesByNumber[maintainingBlockNumber];
+      if (oldHash == maintainingBlockHash) {
+        break;
+      }
+
+      if (oldHash != 0) {
+        emit BlockReorganazied(oldHash);
+      }
+
       blockHashesByNumber[maintainingBlockNumber] = maintainingBlockHash;
 
       if (maintainingBlockNumber == startBlockNumber) {
